@@ -26,7 +26,10 @@ st.set_page_config(
 
 @st.cache_data
 def load_data():
-    return pd.read_csv(DATA_PATH)
+    try:
+        return pd.read_csv(DATA_PATH, encoding="utf-8")
+    except UnicodeDecodeError:
+        return pd.read_csv(DATA_PATH, encoding="latin1")
 
 def add_features(frame):
     frame = frame.copy()
