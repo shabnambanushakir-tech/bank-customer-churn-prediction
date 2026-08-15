@@ -1,0 +1,34 @@
+{
+  "model_name": "Gradient Boosting",
+  "input_features": [
+    "CreditScore",
+    "Geography",
+    "Gender",
+    "Age",
+    "Tenure",
+    "Balance",
+    "NumOfProducts",
+    "HasCrCard",
+    "IsActiveMember",
+    "EstimatedSalary"
+  ],
+  "categorical_features": [
+    "Geography",
+    "Gender"
+  ],
+  "numerical_features": [
+    "CreditScore",
+    "Age",
+    "Tenure",
+    "Balance",
+    "NumOfProducts",
+    "HasCrCard",
+    "IsActiveMember",
+    "EstimatedSalary",
+    "BalanceSalaryRatio",
+    "ProductDensity",
+    "EngagementProduct",
+    "AgeTenureInteraction"
+  ],
+  "overall_churn_rate": 0.2037
+}
