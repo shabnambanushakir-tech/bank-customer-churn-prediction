@@ -1,10 +1,8 @@
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
 
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier
@@ -20,16 +18,33 @@ METADATA_PATH = BASE_DIR / "metadata.json"
 
 st.set_page_config(
     page_title="Bank Customer Churn Intelligence",
-    page_icon="🏦",
+    page_icon="ðŸ¦",
     layout="wide"
 )
 
 @st.cache_data
 def load_data():
-    try:
-        return pd.read_csv(DATA_PATH, encoding="utf-8")
-    except UnicodeDecodeError:
-        return pd.read_csv(DATA_PATH, encoding="latin1")
+    """Load the project CSV with a few safe encoding fallbacks."""
+    if not DATA_PATH.exists():
+        raise FileNotFoundError(
+            f"Dataset not found: {DATA_PATH}. "
+            "Make sure European_Bank.csv is committed to the repository."
+        )
+
+    last_error = None
+    for encoding in ("utf-8", "utf-8-sig", "latin1"):
+        try:
+            return pd.read_csv(DATA_PATH, encoding=encoding)
+        except UnicodeDecodeError as exc:
+            last_error = exc
+        except pd.errors.ParserError as exc:
+            raise ValueError(
+                f"European_Bank.csv could not be parsed. "
+                f"Check that the CSV is valid and uses a consistent delimiter. "
+                f"Original error: {exc}"
+            ) from exc
+
+    raise ValueError(f"Could not decode European_Bank.csv: {last_error}")
 
 def add_features(frame):
     frame = frame.copy()
@@ -43,12 +58,32 @@ def add_features(frame):
 def train_model():
     df = load_data().copy()
 
+    required_columns = {
+        "Exited",
+        "Geography",
+        "Gender",
+        "CreditScore",
+        "Age",
+        "Tenure",
+        "Balance",
+        "NumOfProducts",
+        "HasCrCard",
+        "IsActiveMember",
+        "EstimatedSalary",
+    }
+    missing_columns = required_columns - set(df.columns)
+    if missing_columns:
+        raise ValueError(
+            "European_Bank.csv is missing required columns: "
+            + ", ".join(sorted(missing_columns))
+        )
+
     X = df.drop(columns=["Exited", "CustomerId", "Surname"], errors="ignore")
-    y = df["Exited"].astype(int)
+    y = pd.to_numeric(df["Exited"], errors="raise").astype(int)
 
     X = add_features(X)
 
-    categorical = ["Geography", "Gender"]
+    categorical = [c for c in ["Geography", "Gender"] if c in X.columns]
     numeric = [c for c in X.columns if c not in categorical]
 
     preprocessor = ColumnTransformer(
@@ -106,15 +141,18 @@ def risk_action(risk):
 model, live_metrics = train_model()
 df = load_data()
 
-try:
-    metadata = json.loads(METADATA_PATH.read_text())
-except Exception:
-    metadata = {
-        "overall_churn_rate": float(df["Exited"].mean()),
-        "model_name": "Gradient Boosting"
-    }
+if METADATA_PATH.exists():
+    try:
+        metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        metadata = {}
+else:
+    metadata = {}
 
-st.title("🏦 Bank Customer Churn Intelligence")
+metadata.setdefault("overall_churn_rate", float(df["Exited"].mean()))
+metadata.setdefault("model_name", "Gradient Boosting")
+
+st.title("ðŸ¦ Bank Customer Churn Intelligence")
 st.caption("Predictive modeling and risk scoring for proactive customer-retention analysis")
 
 st.sidebar.header("Navigation")
@@ -201,11 +239,11 @@ elif page == "Risk Calculator":
         c.metric("Binary churn flag", "Likely churn" if probability >= 0.50 else "Likely retained")
 
         if risk == "High":
-            st.error(f"🔴 HIGH RISK — {risk_action(risk)}")
+            st.error(f"ðŸ”´ HIGH RISK â€”Â {risk_action(risk)}")
         elif risk == "Medium":
-            st.warning(f"🟠 MEDIUM RISK — {risk_action(risk)}")
+            st.warning(f"ðŸŸ  MEDIUM RISK â€”Â {risk_action(risk)}")
         else:
-            st.success(f"🟢 LOW RISK — {risk_action(risk)}")
+            st.success(f"ðŸŸ¢ LOW RISK â€”Â {risk_action(risk)}")
 
 elif page == "What-If Simulator":
     st.header("What-If Churn Risk Simulator")
@@ -274,4 +312,4 @@ elif page == "Model Performance":
     st.bar_chart(perf.set_index("Model")[["Accuracy", "Precision", "Recall", "F1 Score", "ROC-AUC"]].T)
 
 st.sidebar.divider()
-st.sidebar.caption("Bank Customer Churn Intelligence • ML project")
+st.sidebar.caption("Bank Customer Churn Intelligence â€¢ ML project")
